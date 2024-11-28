@@ -46,9 +46,11 @@
           <el-col :span="12">
             <el-form-item label="交收方式" prop="deliveryInfoVO.deliveryMethod">
               <el-select v-model="addForm.deliveryInfoVO.deliveryMethod" placeholder="选择交收方式">
-                <el-option label="自取" value="self-pickup" />
-                <el-option label="快递" value="delivery" />
-                <el-option label="上门送货" value="home-delivery" />
+                <el-option label="顺丰（寄付）" value="sender_pays" />
+                <el-option label="顺丰（到付）" value="receiver_pays" />
+                <el-option label="快递柜" value="express_locker" />
+                <el-option label="线下交付" value="offline_delivery" />
+                <el-option label="待定" value="undetermined" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -74,6 +76,11 @@
         <!-- 新增交收人字段 -->
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="备注" prop="deliveryInfoVO.description">
+              <el-input v-model="editForm.deliveryInfoVO.description" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="交收状态" prop="deliveryInfoVO.isCompleted">
               <el-radio-group v-model="addForm.deliveryInfoVO.isCompleted">
                 <el-radio :label="true">完成</el-radio>
@@ -91,10 +98,12 @@
           <el-col :span="12">
             <el-form-item label="支付方式" prop="paymentInfoVO.paymentMethod">
               <el-select v-model="addForm.paymentInfoVO.paymentMethod" placeholder="选择支付方式">
-                <el-option label="支付宝" value="alipay" />
-                <el-option label="微信支付" value="wechat" />
-                <el-option label="银行卡" value="bank" />
-                <el-option label="现金" value="cash" />
+                <el-option label="Payme" value="Payme" />
+                <el-option label="Alipay" value="Alipay" />
+                <el-option label="FPS" value="FPS" />
+                <el-option label="Wechat" value="Wechat" />
+                <el-option label="Cash" value="Cash" />
+                <el-option label="Bank" value="Bank" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -120,8 +129,8 @@
           <el-col :span="12">
             <el-form-item label="支付状态" prop="paymentInfoVO.isCompleted">
               <el-radio-group v-model="addForm.paymentInfoVO.isCompleted">
-                <el-radio :label="true">完成</el-radio>
-                <el-radio :label="false">未完成</el-radio>
+                <el-radio :label="true">已付</el-radio>
+                <el-radio :label="false">未付</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
@@ -214,15 +223,15 @@
     </el-table-column>
     <el-table-column label="支付状态" prop="paymentInfoVO.isCompleted">
       <template #default="{ row }">
-        <el-tooltip class="item" effect="dark" :content="row.paymentInfoVO.isCompleted" placement="top">
-          <span class="ellipsis" @click="showDetails(row)">{{ row.paymentInfoVO.isCompleted }}</span>
-        </el-tooltip>
+        <el-tag :type="row.paymentInfoVO.isCompleted ? 'success' : 'danger'" size="small">
+          {{ row.paymentInfoVO.isCompleted ? '已付' : '未付' }}
+        </el-tag>
       </template>
     </el-table-column>
     <el-table-column label="交付方式" prop="deliveryInfoVO.deliveryMethod">
       <template #default="{ row }">
-        <el-tooltip class="item" effect="dark" :content="row.deliveryInfoVO.deliveryMethod" placement="top">
-          <span class="ellipsis" @click="showDetails(row)">{{ row.deliveryInfoVO.deliveryMethod }}</span>
+        <el-tooltip class="item" effect="dark" :content="mapDeliveryMethod(row.deliveryInfoVO.deliveryMethod)" placement="top">
+          <span class="ellipsis" @click="showDetails(row)">{{ mapDeliveryMethod(row.deliveryInfoVO.deliveryMethod) }}</span>
         </el-tooltip>
       </template>
     </el-table-column>
@@ -234,7 +243,14 @@
         </el-tooltip>
       </template>
     </el-table-column>
-    <el-table-column label="交付状态" prop="deliveryInfoVO.isCompleted" />
+    <el-table-column label="交付状态" prop="deliveryInfoVO.isCompleted">
+      <template #default="{ row }">
+        <el-tag :type="row.deliveryInfoVO.isCompleted ? 'success' : 'danger'" size="small">
+          {{ row.deliveryInfoVO.isCompleted ? '已完成' : '未完成' }}
+        </el-tag>
+      </template>
+    </el-table-column>
+
     <el-table-column label="客户" prop="customerInfoVO.customerName" />
     <el-table-column label="联系方式" prop="customerInfoVO.phoneNumber" />
     <el-table-column label="商品">
@@ -287,12 +303,12 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="顾客姓名" prop="customerInfoVO.customerName">
-            <el-input v-model="selectedProduct.customerInfoVO.customerName" />
+            <el-input v-model="selectedProduct.customerInfoVO.customerName" readonly />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="顾客电话" prop="customerInfoVO.phoneNumber">
-            <el-input v-model="selectedProduct.customerInfoVO.phoneNumber" />
+            <el-input v-model="selectedProduct.customerInfoVO.phoneNumber" readonly />
           </el-form-item>
 
         </el-col>
@@ -301,13 +317,13 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="顾客地址" prop="customerInfoVO.shippingAddress">
-            <el-input v-model="selectedProduct.customerInfoVO.shippingAddress" />
+            <el-input v-model="selectedProduct.customerInfoVO.shippingAddress" readonly />
           </el-form-item>
         </el-col>
         <el-col :span="12">
 
           <el-form-item label="顾客ID" prop="customerInfoVO.customerId" v-show="false">
-            <el-input v-model="selectedProduct.customerInfoVO.customerId" />
+            <el-input v-model="selectedProduct.customerInfoVO.customerId" readonly />
           </el-form-item>
         </el-col>
 
@@ -320,37 +336,43 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="交收方式" prop="deliveryInfoVO.deliveryMethod">
-            <el-select v-model="selectedProduct.deliveryInfoVO.deliveryMethod" placeholder="选择交收方式">
-              <el-option label="自取" value="self-pickup" />
-              <el-option label="快递" value="delivery" />
-              <el-option label="上门送货" value="home-delivery" />
+            <el-select v-model="selectedProduct.deliveryInfoVO.deliveryMethod" placeholder="选择交收方式" disabled>
+              <el-option label="顺丰（寄付）" value="sender_pays" />
+              <el-option label="顺丰（到付）" value="receiver_pays" />
+              <el-option label="快递柜" value="express_locker" />
+              <el-option label="线下交付" value="offline_delivery" />
+              <el-option label="待定" value="undetermined" />
             </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="交收地址" prop="deliveryInfoVO.deliveryAddress">
-            <el-input v-model="selectedProduct.deliveryInfoVO.deliveryAddress" />
+            <el-input v-model="selectedProduct.deliveryInfoVO.deliveryAddress" readonly />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="交收日期" prop="deliveryInfoVO.deliveryDate">
-            <el-input v-model="selectedProduct.deliveryInfoVO.deliveryDate" type="datetime-local" />
+            <el-input v-model="selectedProduct.deliveryInfoVO.deliveryDate" type="datetime-local" readonly />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="交收人" prop="deliveryInfoVO.deliveryPerson">
-            <el-input v-model="selectedProduct.deliveryInfoVO.deliveryPerson" />
+            <el-input v-model="selectedProduct.deliveryInfoVO.deliveryPerson" readonly />
           </el-form-item>
-
         </el-col>
       </el-row>
       <!-- 新增交收人字段 -->
       <el-row :gutter="20">
         <el-col :span="12">
+          <el-form-item label="备注" prop="deliveryInfoVO.description">
+            <el-input v-model="editForm.deliveryInfoVO.description" readonly />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
           <el-form-item label="交收状态" prop="deliveryInfoVO.isCompleted">
-            <el-radio-group v-model="selectedProduct.deliveryInfoVO.isCompleted">
+            <el-radio-group v-model="selectedProduct.deliveryInfoVO.isCompleted" disabled>
               <el-radio :label="true">完成</el-radio>
               <el-radio :label="false">未完成</el-radio>
             </el-radio-group>
@@ -365,38 +387,40 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="支付方式" prop="paymentInfoVO.paymentMethod">
-            <el-select v-model="selectedProduct.paymentInfoVO.paymentMethod" placeholder="选择支付方式">
-              <el-option label="支付宝" value="alipay" />
-              <el-option label="微信支付" value="wechat" />
-              <el-option label="银行卡" value="bank" />
-              <el-option label="现金" value="cash" />
+            <el-select v-model="selectedProduct.paymentInfoVO.paymentMethod" placeholder="选择支付方式" disabled>
+              <el-option label="Payme" value="Payme" />
+              <el-option label="Alipay" value="Alipay" />
+              <el-option label="FPS" value="FPS" />
+              <el-option label="Wechat" value="Wechat" />
+              <el-option label="Cash" value="Cash" />
+              <el-option label="Bank" value="Bank" />
             </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="应付金额" prop="paymentInfoVO.amountDue">
-            <el-input v-model="selectedProduct.paymentInfoVO.amountDue" />
+            <el-input v-model="selectedProduct.paymentInfoVO.amountDue" readonly />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="已付金额" prop="paymentInfoVO.amountPaid">
-            <el-input v-model="addForm.paymentInfoVO.amountPaid" />
+            <el-input v-model="addForm.paymentInfoVO.amountPaid" readonly />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="支付日期" prop="paymentInfoVO.paymentDate">
-            <el-input v-model="selectedProduct.paymentInfoVO.paymentDate" type="datetime-local" />
+            <el-input v-model="selectedProduct.paymentInfoVO.paymentDate" type="datetime-local" readonly />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="支付状态" prop="paymentInfoVO.isCompleted">
-            <el-radio-group v-model="selectedProduct.paymentInfoVO.isCompleted">
-              <el-radio :label="true">完成</el-radio>
-              <el-radio :label="false">未完成</el-radio>
+            <el-radio-group v-model="selectedProduct.paymentInfoVO.isCompleted" disabled>
+              <el-radio :label="true">已付</el-radio>
+              <el-radio :label="false">未付</el-radio>
             </el-radio-group>
           </el-form-item>
         </el-col>
@@ -418,7 +442,7 @@
 
             <el-col :span="12">
               <el-form-item :label="'商品名称'">
-                <el-select v-model="item.productBasicInfoVO.productName" filterable remote remote-method="searchProducts" :loading="loading" placeholder="请选择商品名称" @change="onProductSelect(item, index)">
+                <el-select v-model="item.productBasicInfoVO.productName" filterable remote remote-method="searchProducts" :loading="loading" placeholder="请选择商品名称" @change="onProductSelect(item, index)" disabled>
                   <el-option v-for="product in productList" :key="product.productId" :label="product.productName" :value="product.productName" />
                 </el-select>
               </el-form-item>
@@ -428,7 +452,7 @@
           <el-row :gutter="20">
             <el-col :span="12">
               <el-form-item label="商品数量">
-                <el-input v-model="item.orderItemQuantity" />
+                <el-input v-model="item.orderItemQuantity" readonly />
               </el-form-item>
             </el-col>
 
@@ -446,201 +470,212 @@
   </el-dialog>
 
   <!-- 编辑弹窗 -->
-  <el-dialog v-model="showEditDialog" title="编辑订单" @close="handleCloseEdit">
-    <el-form :model="editForm" ref="editFormRef" :rules="addRules" label-width="auto">
-      <!-- 顾客信息模块 -->
-      <div class="section-title">
-        <el-tag type="info" class="module-tag">顾客信息</el-tag>
-      </div>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="顾客姓名" prop="customerInfoVO.customerName">
-            <el-input v-model="editForm.customerInfoVO.customerName" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="顾客电话" prop="customerInfoVO.phoneNumber">
-            <el-input v-model="editForm.customerInfoVO.phoneNumber" />
-          </el-form-item>
-
-        </el-col>
-
-      </el-row>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="顾客地址" prop="customerInfoVO.shippingAddress">
-            <el-input v-model="editForm.customerInfoVO.shippingAddress" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-
-          <el-form-item label="顾客ID" prop="customerInfoVO.customerId" v-show="false">
-            <el-input v-model="editForm.customerInfoVO.customerId" />
-          </el-form-item>
-        </el-col>
-
-      </el-row>
-
-      <!-- 交收信息模块 -->
-      <div class="section-title">
-        <el-tag type="info" class="module-tag">交收信息</el-tag>
-      </div>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="交收方式" prop="deliveryInfoVO.deliveryMethod">
-            <el-select v-model="editForm.deliveryInfoVO.deliveryMethod" placeholder="选择交收方式">
-              <el-option label="自取" value="self-pickup" />
-              <el-option label="快递" value="delivery" />
-              <el-option label="上门送货" value="home-delivery" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="交收地址" prop="deliveryInfoVO.deliveryAddress">
-            <el-input v-model="editForm.deliveryInfoVO.deliveryAddress" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="交收日期" prop="deliveryInfoVO.deliveryDate">
-            <el-input v-model="editForm.deliveryInfoVO.deliveryDate" type="datetime-local" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="交收人" prop="deliveryInfoVO.deliveryPerson">
-            <el-input v-model="editForm.deliveryInfoVO.deliveryPerson" />
-          </el-form-item>
-
-        </el-col>
-      </el-row>
-      <!-- 新增交收人字段 -->
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="交收状态" prop="deliveryInfoVO.isCompleted">
-            <el-radio-group v-model="editForm.deliveryInfoVO.isCompleted">
-              <el-radio :label="true">完成</el-radio>
-              <el-radio :label="false">未完成</el-radio>
-            </el-radio-group>
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <!-- 支付信息模块 -->
-      <div class="section-title">
-        <el-tag type="info" class="module-tag">支付信息</el-tag>
-      </div>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="支付方式" prop="paymentInfoVO.paymentMethod">
-            <el-select v-model="editForm.paymentInfoVO.paymentMethod" placeholder="选择支付方式">
-              <el-option label="支付宝" value="alipay" />
-              <el-option label="微信支付" value="wechat" />
-              <el-option label="银行卡" value="bank" />
-              <el-option label="现金" value="cash" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="应付金额" prop="paymentInfoVO.amountDue">
-            <el-input v-model="editForm.paymentInfoVO.amountDue" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="已付金额" prop="paymentInfoVO.amountPaid">
-            <el-input v-model="editForm.paymentInfoVO.amountPaid" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="支付日期" prop="paymentInfoVO.paymentDate">
-            <el-input v-model="editForm.paymentInfoVO.paymentDate" type="datetime-local" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="支付状态" prop="paymentInfoVO.isCompleted">
-            <el-radio-group v-model="editForm.paymentInfoVO.isCompleted">
-              <el-radio :label="true">完成</el-radio>
-              <el-radio :label="false">未完成</el-radio>
-            </el-radio-group>
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <!-- 订单商品列表模块 -->
-      <div>
+  <el-dialog v-model="showEditDialog" title="编辑订单" @close="handleCloseEdit" :width="'80%'">
+    <el-scrollbar>
+      <el-form :model="editForm" ref="editFormRef" :rules="addRules" label-width="auto">
+        <!-- 顾客信息模块 -->
         <div class="section-title">
-          <el-tag type="info" class="module-tag">订单商品</el-tag>
+          <el-tag type="info" class="module-tag">顾客信息</el-tag>
         </div>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="顾客姓名" prop="customerInfoVO.customerName">
+              <el-input v-model="editForm.customerInfoVO.customerName" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="顾客电话" prop="customerInfoVO.phoneNumber">
+              <el-input v-model="editForm.customerInfoVO.phoneNumber" />
+            </el-form-item>
 
-        <div v-for="(item, index) in editForm.orderItemVOList" :key="index">
-          <el-row :gutter="20">
-            <el-col :span="12">
-              <el-form-item :label="'商品ID'">
-                <el-input v-model="item.productBasicInfoVO.productId" readonly />
-              </el-form-item>
-            </el-col>
+          </el-col>
 
-            <el-col :span="12">
-              <el-form-item :label="'商品名称'">
-                <el-select v-model="item.productBasicInfoVO.productName" filterable remote remote-method="searchProducts" :loading="loading" placeholder="请选择商品名称" @change="onProductSelect(item, index)">
-                  <el-option v-for="product in productList" :key="product.productId" :label="product.productName" :value="product.productName" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="顾客地址" prop="customerInfoVO.shippingAddress">
+              <el-input v-model="editForm.customerInfoVO.shippingAddress" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
 
-          <el-row :gutter="20">
-            <el-col :span="12">
-              <el-form-item label="商品数量">
-                <el-input v-model="item.orderItemQuantity" />
-              </el-form-item>
-            </el-col>
+            <el-form-item label="顾客ID" prop="customerInfoVO.customerId" v-show="false">
+              <el-input v-model="editForm.customerInfoVO.customerId" />
+            </el-form-item>
+          </el-col>
 
-            <el-col :span="12">
-              <el-form-item label="商品库存">
-                <el-input v-model="item.productBasicInfoVO.productStock" readonly />
-              </el-form-item>
-            </el-col>
-          </el-row>
+        </el-row>
 
-          <el-row v-if="item.orderItemQuantity > item.productBasicInfoVO.productStock" :gutter="20">
-            <el-col :span="24">
-              <el-tag type="danger" class="warning-tag">数量超出库存！</el-tag>
-            </el-col>
-          </el-row>
-
-          <!-- 删除和新增按钮在同一行，调整按钮间距 -->
-          <el-row justify="space-between" style="margin-top: 10px; margin-bottom: 20px;">
-            <!-- 删除按钮 -->
-            <el-col :span="11">
-              <el-button @click="removeOrderItem(index)" type="danger" style="width: 20%;">
-                <el-icon>
-                  <RemoveFilled />
-                </el-icon> 删除条目
-              </el-button>
-            </el-col>
-
-            <!-- 新增按钮 -->
-            <el-col :span="11">
-              <el-button @click="addOrderItem" type="primary" style="width: 20%;">
-                <el-icon>
-                  <CirclePlusFilled />
-                </el-icon> 增加条目
-              </el-button>
-            </el-col>
-          </el-row>
+        <!-- 交收信息模块 -->
+        <div class="section-title">
+          <el-tag type="info" class="module-tag">交收信息</el-tag>
         </div>
-      </div>
-      <!-- 操作按钮 -->
-      <el-form-item>
-        <el-button style="margin-left: 40%;" type="primary" @click="onEditSubmit">保存</el-button>
-        <el-button @click="handleCloseEdit">取消</el-button>
-      </el-form-item>
-    </el-form>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="交收方式" prop="deliveryInfoVO.deliveryMethod">
+              <el-select v-model="editForm.deliveryInfoVO.deliveryMethod" placeholder="选择交收方式">
+                <el-option label="顺丰（寄付）" value="sender_pays" />
+                <el-option label="顺丰（到付）" value="receiver_pays" />
+                <el-option label="快递柜" value="express_locker" />
+                <el-option label="线下交付" value="offline_delivery" />
+                <el-option label="待定" value="undetermined" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="交收地址" prop="deliveryInfoVO.deliveryAddress">
+              <el-input v-model="editForm.deliveryInfoVO.deliveryAddress" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="交收日期" prop="deliveryInfoVO.deliveryDate">
+              <el-input v-model="editForm.deliveryInfoVO.deliveryDate" type="datetime-local" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="交收人" prop="deliveryInfoVO.deliveryPerson">
+              <el-input v-model="editForm.deliveryInfoVO.deliveryPerson" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+        <!-- 新增交收人字段 -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="备注" prop="deliveryInfoVO.description">
+              <el-input v-model="editForm.deliveryInfoVO.description" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="交收状态" prop="deliveryInfoVO.isCompleted">
+              <el-radio-group v-model="editForm.deliveryInfoVO.isCompleted">
+                <el-radio :label="true">完成</el-radio>
+                <el-radio :label="false">未完成</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 支付信息模块 -->
+        <div class="section-title">
+          <el-tag type="info" class="module-tag">支付信息</el-tag>
+        </div>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="支付方式" prop="paymentInfoVO.paymentMethod">
+              <el-select v-model="editForm.paymentInfoVO.paymentMethod" placeholder="选择支付方式">
+                <el-option label="Payme" value="Payme" />
+                <el-option label="Alipay" value="Alipay" />
+                <el-option label="FPS" value="FPS" />
+                <el-option label="Wechat" value="Wechat" />
+                <el-option label="Cash" value="Cash" />
+                <el-option label="Bank" value="Bank" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="应付金额" prop="paymentInfoVO.amountDue">
+              <el-input v-model="editForm.paymentInfoVO.amountDue" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="已付金额" prop="paymentInfoVO.amountPaid">
+              <el-input v-model="editForm.paymentInfoVO.amountPaid" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="支付日期" prop="paymentInfoVO.paymentDate">
+              <el-input v-model="editForm.paymentInfoVO.paymentDate" type="datetime-local" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="支付状态" prop="paymentInfoVO.isCompleted">
+              <el-radio-group v-model="editForm.paymentInfoVO.isCompleted">
+                <el-radio :label="true">已付</el-radio>
+                <el-radio :label="false">未付</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 订单商品列表模块 -->
+        <div>
+          <div class="section-title">
+            <el-tag type="info" class="module-tag">订单商品</el-tag>
+          </div>
+
+          <div v-for="(item, index) in editForm.orderItemVOList" :key="index">
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="'商品ID'">
+                  <el-input v-model="item.productBasicInfoVO.productId" readonly />
+                </el-form-item>
+              </el-col>
+
+              <el-col :span="12">
+                <el-form-item :label="'商品名称'">
+                  <el-select v-model="item.productBasicInfoVO.productName" filterable remote remote-method="searchProducts" :loading="loading" placeholder="请选择商品名称" @change="onProductSelect(item, index)">
+                    <el-option v-for="product in productList" :key="product.productId" :label="product.productName" :value="product.productName" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="商品数量">
+                  <el-input v-model="item.orderItemQuantity" />
+                </el-form-item>
+              </el-col>
+
+              <el-col :span="12">
+                <el-form-item label="商品库存">
+                  <el-input v-model="item.productBasicInfoVO.productStock" readonly />
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row v-if="item.orderItemQuantity > item.productBasicInfoVO.productStock" :gutter="20">
+              <el-col :span="24">
+                <el-tag type="danger" class="warning-tag">数量超出库存！</el-tag>
+              </el-col>
+            </el-row>
+
+            <!-- 删除和新增按钮在同一行，调整按钮间距 -->
+            <el-row justify="space-between" style="margin-top: 10px; margin-bottom: 20px;">
+              <!-- 删除按钮 -->
+              <el-col :span="11">
+                <el-button @click="removeEditOrderItem(index)" type="danger" style="width: 20%;">
+                  <el-icon>
+                    <RemoveFilled />
+                  </el-icon> 删除条目
+                </el-button>
+              </el-col>
+
+              <!-- 新增按钮 -->
+              <el-col :span="11">
+                <el-button @click="editOrderItem" type="primary" style="width: 20%;">
+                  <el-icon>
+                    <CirclePlusFilled />
+                  </el-icon> 增加条目
+                </el-button>
+              </el-col>
+            </el-row>
+          </div>
+        </div>
+        <!-- 操作按钮 -->
+        <el-form-item>
+          <el-button style="margin-left: 40%;" type="primary" @click="onEditSubmit">保存</el-button>
+          <el-button @click="handleCloseEdit">取消</el-button>
+        </el-form-item>
+      </el-form>
+    </el-scrollbar>
   </el-dialog>
 </template>
 
@@ -710,6 +745,7 @@ const addForm = ref({
     deliveryMethod: '',
     deliveryAddress: '',
     deliveryPerson: '',
+    description: '',
     deliveryDate: null,
     isCompleted: false,
   },
@@ -731,10 +767,10 @@ const addForm = ref({
       productCategory: '',
       region: '',
       productUnitPrice: 0,
-      productStock: '',
+      productStock: 1,
       description: '',
     },
-    orderItemQuantity: 0,
+    orderItemQuantity: 1,
     orderItemTotalPrice: 0,
   },],
   orderStatus: '',
@@ -757,10 +793,27 @@ const addOrderItem = () => {
       productCategory: '',
       region: '',
       productUnitPrice: 0,
-      productStock: '',
+      productStock: 1,
       description: '',
     },
-    orderItemQuantity: 0,
+    orderItemQuantity: 1,
+    orderItemTotalPrice: 0,
+  });
+};
+const addEditOrderItem = () => {
+  editForm.value.orderItemVOList.push({
+    orderItemId: '',
+    orderId: '',
+    productBasicInfoVO: {
+      productId: '',
+      productName: '',
+      productCategory: '',
+      region: '',
+      productUnitPrice: 0,
+      productStock: 1,
+      description: '',
+    },
+    orderItemQuantity: 1,
     orderItemTotalPrice: 0,
   });
 };
@@ -778,6 +831,7 @@ const selectedProduct = ref({
     deliveryMethod: '',
     deliveryAddress: '',
     deliveryPerson: '',
+    description: '',
     deliveryDate: null,
     isCompleted: false,
   },
@@ -809,6 +863,7 @@ const editForm = ref({
     deliveryMethod: '',
     deliveryAddress: '',
     deliveryPerson: '',
+    description: '',
     deliveryDate: null,
     isCompleted: false,
   },
@@ -825,6 +880,13 @@ const editForm = ref({
   orderStatus: '',
   orderCreatedTime: null,
 });
+// 删除商品
+const removeEditOrderItem = (index) => {
+  // 使用 splice 删除指定索引的商品
+  if (editForm.value.orderItemVOList.length > 1) {
+    editForm.value.orderItemVOList.splice(index, 1);
+  }
+};
 const editOrderItem = () => {
   editForm.value.orderItemVOList.push({
     orderItemId: '',
@@ -835,20 +897,66 @@ const editOrderItem = () => {
       productCategory: '',
       region: '',
       productUnitPrice: 0,
-      productStock: '',
+      productStock: 1,
       description: '',
     },
     orderItemQuantity: 1,
     orderItemTotalPrice: 0,
   });
 };
+// 支付方式映射函数
+const paymentMethodMap = {
+  Alipay: 'Alipay',
+  Wechat: 'Wechat',
+  Bank: 'Bank',
+  Cash: 'Cash',
+  Payme: 'Payme',
+  FPS: 'FPS'
+};
+
+const mapPaymentMethod = (method) => {
+  return paymentMethodMap[method] || method;
+};
+
+// 支付状态映射函数
+const paymentStatusMap = {
+  true: '已付',
+  false: '未付'
+};
+
+const mapPaymentStatus = (status) => {
+  return paymentStatusMap[status] === undefined ? status : paymentStatusMap[status];
+};
+
+// 交付方式映射函数
+const deliveryMethodMap = {
+  sender_pays: "顺丰（寄付）",
+  receiver_pays: "顺丰（到付）",
+  express_locker: "快递柜",
+  offline_delivery: "线下交付",
+  undetermined: "待定"
+}
+
+const mapDeliveryMethod = (method) => {
+  return deliveryMethodMap[method] || method;
+};
+
+// 交付状态映射函数
+const deliveryStatusMap = {
+  true: '已完成',
+  false: '未完成'
+};
+
+const mapDeliveryStatus = (status) => {
+  return deliveryStatusMap[status] === undefined ? status : deliveryStatusMap[status];
+};
+
 // 新增规则
 const addRules = {
 
 };
 // 列表刷新
 getOrderPageList(currentPage4.value, pageSize4.value).then((res) => {
-  console.log(res);
   fullData.value = res.data.records;
   totalData.value = res.data.total;
 }).catch((err) => {
@@ -915,19 +1023,23 @@ const handleFormSubmitted = (newCustomer) => {
 const onEditSubmit = () => {
   editFormRef.value.validate(async (valid) => {
     if (valid) {
-      try {
-        const response = await axios.post('http://localhost:8100/api/customerInfo/add', editForm.value);
-        if (response.data.success) {
-          ElMessage.success('商品编辑成功');
+      editOrder(editForm.value).then(res => {
+        if (res.status === 'success') {
+          ElMessage.success('订单更新成功');
           showEditDialog.value = false;
-          handleFormSubmitted(editForm.value);
+          getOrderPageList(currentPage4.value, pageSize4.value).then(res => {
+            fullData.value = res.data;
+            totalData.value = fullData.value.length;
+            tableKey.value += 1;  // 更新 key 强制刷新
+          }).catch(error => {
+            ElMessage.error(`获取订单列表失败: ${error.message || '未知错误'}`);
+          });
         } else {
-          ElMessage.error('编辑失败');
+          ElMessage.error(`更新失败: ${res.message || '未知错误'}`);
         }
-      } catch (error) {
-        ElMessage.error('请求失败');
-        console.error(error);
-      }
+      }).catch(error => {
+        ElMessage.error(`请求失败: ${error.message || '未知错误'}`);
+      });
     }
   });
 };
@@ -947,6 +1059,8 @@ const handleClose = () => {
       orderId: '',
       deliveryMethod: '',
       deliveryAddress: '',
+      deliveryPerson: '',
+      description: '',
       deliveryDate: null,
       isCompleted: false,
     },
@@ -971,7 +1085,7 @@ const handleClose = () => {
         productStock: '',
         description: '',
       },
-      orderItemQuantity: 0,
+      orderItemQuantity: 1,
       orderItemTotalPrice: 0,
     }],
     orderStatus: '',
@@ -989,18 +1103,80 @@ const handleCloseEdit = () => {
 
 // 编辑按钮点击事件
 const handleEdit = (index, row) => {
-  editForm.value = { ...row };
-  showEditDialog.value = true;
+  console.log(row);
+  // 先检查传入的 product 是否有 id
+  if (!row || !row.orderId) {
+    ElMessage.error('订单ID无效');
+    return;
+  }
+
+  getOrder(row.orderId).then(res => {
+    if (res.status === 'success') {  // 修改为检查 res.status
+      editForm.value = {
+        ...res.data,  // 将详细数据赋给 selectedProduct
+      };
+      showEditDialog.value = true; // 显示详情弹窗
+    } else {
+      ElMessage.error(`获取订单详情失败: ${res.message || '未知错误'}`);
+      console.error('获取订单详情失败', res);
+    }
+  }).catch(error => {
+    // 捕获网络错误或其他异常
+    ElMessage.error(`获取订单详情时发生错误: ${error.message}`);
+    console.error('获取订单详情时发生错误', error);
+  });
+
+
 };
 
 const handleDelete = (index, row) => {
-  console.log('删除:', index, row);
+  ElMessageBox.confirm('此操作将永久删除该订单, 是否继续?', '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    console.log(row.orderId);
+
+    delOrder(row.orderId).then(res => {
+      if (res.status === 'success') {
+        ElMessage.success('订单删除成功');
+        fullData.value.splice(index, 1); // Remove product from list
+        nextTick(() => {
+          updateTotalData();
+        });
+      } else {
+        ElMessage.error(`删除失败: ${res.message || '未知错误'}`); // 提示后端返回的 message
+      }
+    }).catch(error => {
+      ElMessage.error(`请求失败: ${error.message || '未知错误'}`); // 捕获网络错误
+    });
+  });
 };
 
 
-const showDetails = (product) => {
-  selectedProduct.value = product;
-  showDetailsDialog.value = true;
+const showDetails = (order) => {
+  console.log(order);
+  // 先检查传入的 product 是否有 id
+  if (!order || !order.orderId) {
+    ElMessage.error('订单ID无效');
+    return;
+  }
+
+  getOrder(order.orderId).then(res => {
+    if (res.status === 'success') {  // 修改为检查 res.status
+      selectedProduct.value = {
+        ...res.data,  // 将详细数据赋给 selectedProduct
+      };
+      showDetailsDialog.value = true; // 显示详情弹窗
+    } else {
+      ElMessage.error(`获取商品详情失败: ${res.message || '未知错误'}`);
+      console.error('获取商品详情失败', res);
+    }
+  }).catch(error => {
+    // 捕获网络错误或其他异常
+    ElMessage.error(`获取商品详情时发生错误: ${error.message}`);
+    console.error('获取商品详情时发生错误', error);
+  });
 };
 
 </script>
