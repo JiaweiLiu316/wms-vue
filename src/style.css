@@ -1,0 +1,113 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+.el-dialog {
+  z-index: 1000 !important;
+}
+
+.card {
+  padding: 2em;
+}
+.foter {
+  color: #888;
+  font-size: 12px;
+  margin-top: 20px;
+  position: fixed;
+  bottom: 0;
+}
+#app {
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #2c3e50;
+  background-color: var(--color-bg-1);
+  height: 100%;
+  width: 100%;
+  text-align: center;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+.view-text {
+  position: relative; /* 固定在页面左上角 */
+  color: #787a7c; /* 黑色文字 */
+  padding: 0; /* 无内边距 */
+  font-size: 30px; /* 字体大小 */
+  line-height: 1.5; /* 行高适中 */
+  background: transparent; /* 背景透明 */
+}
+/* 改变Element 组件样式 */
+
+.el-table tr {
+  background: transparent !important;
+  color: var(rgb(106.8, 108.9, 113.1));
+  font-size: medium;
+}
+.el-table tr th {
+  background: transparent !important;
+}
+
+.el-table tr td {
+  background: transparent !important;
+}
