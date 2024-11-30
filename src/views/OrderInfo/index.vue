@@ -213,7 +213,7 @@
   </el-dialog>
 
   <!-- 订单列表 -->
-  <el-table :data="paginatedData" :key="tableKey" style="width: 100%" @row-click="handleRowClick">
+  <el-table :data="fullData" style="width: 100%" @row-click="handleRowClick">
     <el-table-column label="订单ID" prop="orderId">
       <template #default="{ row }">
         <el-tooltip class="item" effect="dark" :content="row.orderId" placement="top">
@@ -235,7 +235,12 @@
         </el-tooltip>
       </template>
     </el-table-column>
-    <el-table-column label="交付时间" prop="deliveryInfoVO.deliveryDate" />
+    <el-table-column label="交付时间" prop="deliveryInfoVO.deliveryDate">
+      <template #default="{ row }">
+        <span>{{ formatDate(row.deliveryInfoVO.deliveryDate) }}</span>
+      </template>
+    </el-table-column>
+
     <el-table-column label="交付地址" prop="deliveryInfoVO.deliveryAddress">
       <template #default="{ row }">
         <el-tooltip class="item" effect="dark" :content="row.deliveryInfoVO.deliveryAddress" placement="top">
@@ -257,13 +262,19 @@
       <template #default="{ row }">
         <div style="width: 100%;">
           <!-- 使用v-for遍历订单中的商品列表，为每个商品生成一个el-tag -->
-          <el-tag v-for="(item, index) in row.orderItemVOList" :key="index" :size=" 'medium'" class="custom-el-tag" :style="{ maxWidth: '20ch', whiteSpace: 'normal', wordWrap: 'break-word' }">{{ item.productBasicInfoVO.productName }}</el-tag>
+          <el-tooltip v-for="(item, index) in row.orderItemVOList" :key="index" :content="item.productBasicInfoVO.productName" placement="top" :popper-class="{'custom-el-tag': true}">
+            <el-tag :key="index" :size="'medium'" class="custom-el-tag" :style="{ maxWidth: '20ch', whiteSpace: 'normal', wordWrap: 'break-word' }">
+              <!-- 这里只显示item的键 -->
+              {{ item.productBasicInfoVO.productName.slice(-10) }}
+            </el-tag>
+          </el-tooltip>
         </div>
       </template>
+
     </el-table-column>
     <el-table-column label="操作" align="right">
       <template #header>
-        <el-input v-model="search" placeholder="搜索......" />
+        <el-input v-model="search" placeholder="搜索......" @input="fetchData" />
       </template>
       <template #default="scope">
         <el-button type="primary" :icon="EditIcon" circle @click="handleEdit(scope.$index, scope.row)" />
@@ -272,7 +283,7 @@
     </el-table-column>
   </el-table>
   <!-- 分页 -->
-  <el-pagination v-model:current-page="currentPage4" v-model:page-size="pageSize4" :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="totalData" />
+  <el-pagination v-model:current-page="currentPage4" v-model:page-size="pageSize4" :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="totalData" @size-change="fetchData" @current-change="fetchData" />
 
   <!-- 商品详情弹窗 -->
   <el-dialog v-model="showDetailsDialog" title="订单详情" :close-on-click-modal="false" :close-on-press-escape="false">
@@ -681,7 +692,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import AddButton from '../components/AddButton/index.vue';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@element-plus/icons-vue';
 import axios from 'axios';
@@ -703,6 +714,32 @@ let showDetailsDialog = ref(false);
 const productList = ref([]);  // 存储商品信息
 const loading = ref(false);    // 加载状态
 // 获取商品列表
+// 格式化日期
+const formatDate = (date) => {
+  return date ? new Date(date).toLocaleString() : '';
+};
+const fetchData = async () => {
+  try {
+    const params = {
+      page: currentPage4.value,
+      size: pageSize4.value,
+      search: search.value.trim(),
+    }
+    const res = await getOrderPageList(params);
+    fullData.value = res.data.records; // 后端返回的当前页数据
+    totalData.value = res.data.total;  // 后端返回的总条目数
+  } catch (err) {
+    ElMessage.error('加载数据失败');
+  }
+};
+
+fetchData();
+
+// 分页监视器
+watch([search, currentPage4, pageSize4], async () => {
+  fetchData();
+}, { immediate: true });
+
 const fetchProductList = async () => {
   loading.value = true;
   try {
@@ -953,38 +990,63 @@ const mapDeliveryStatus = (status) => {
 
 // 新增规则
 const addRules = {
+  // 顾客信息模块
+  'customerInfoVO.customerName': [
+    { required: true, message: '顾客姓名不能为空', trigger: 'blur' }
+  ],
+  'customerInfoVO.phoneNumber': [
+    { required: true, message: '顾客电话不能为空', trigger: 'blur' },
+  ],
+  'customerInfoVO.shippingAddress': [
+    { required: true, message: '顾客地址不能为空', trigger: 'blur' }
+  ],
 
-};
-// 列表刷新
-getOrderPageList(currentPage4.value, pageSize4.value).then((res) => {
-  fullData.value = res.data.records;
-  totalData.value = res.data.total;
-}).catch((err) => {
-  console.error(err);
-});
-// 总数据 供过滤使用
-const filteredData = computed(() => {
-  const query = search.value.trim().toLowerCase();
-  return fullData.value.filter(
-    (data) =>
-      !search.value ||
-      data.id.toLowerCase().includes(query) ||
-      data.name.toLowerCase().includes(query) ||
-      data.category.toLowerCase().includes(query) || data.region.toLowerCase().includes(query) || String(data.stock).includes(query) ||  // 将 stock 转为字符串
-      String(data.price).includes(query))
-});
-// 分页数据 过滤分页
-const paginatedData = computed(() => {
-  const start = (currentPage4.value - 1) * pageSize4.value;
-  const end = currentPage4.value * pageSize4.value;
-  return filteredData.value.slice(start, end);
-});
-// 过滤后的数据
-const updateTotalData = () => {
-  totalData.value = filteredData.value.length;
-};
-// 分页监视器
-watch([search, currentPage4, pageSize4], updateTotalData);
+  // 交收信息模块
+  'deliveryInfoVO.deliveryMethod': [
+    { required: true, message: '请选择交收方式', trigger: 'change' }
+  ],
+  'deliveryInfoVO.deliveryAddress': [
+    { required: true, message: '交收地址不能为空', trigger: 'blur' }
+  ],
+  'deliveryInfoVO.deliveryDate': [
+    { required: true, message: '交收日期不能为空', trigger: 'change' }
+  ],
+  'deliveryInfoVO.deliveryPerson': [
+    { required: true, message: '交收人不能为空', trigger: 'blur' }
+  ],
+  'deliveryInfoVO.description': [
+    { max: 500, message: '备注最多输入500个字符', trigger: 'blur' }
+  ],
+  'deliveryInfoVO.isCompleted': [
+    { required: true, message: '请选择交收状态', trigger: 'change' }
+  ],
+
+  // 支付信息模块
+  'paymentInfoVO.paymentMethod': [
+    { required: true, message: '请选择支付方式', trigger: 'change' }
+  ],
+  'paymentInfoVO.amountDue': [
+    { required: true, message: '应付金额不能为空', trigger: 'blur' },
+
+  ],
+  'paymentInfoVO.amountPaid': [
+    { required: true, message: '已付金额不能为空', trigger: 'blur' },
+
+  ],
+  'paymentInfoVO.paymentDate': [
+    { required: true, message: '支付日期不能为空', trigger: 'change' }
+  ],
+  'paymentInfoVO.isCompleted': [
+    { required: true, message: '请选择支付状态', trigger: 'change' }
+  ],
+
+  // 订单商品模块
+  'orderItemVOList': [
+    { required: true, message: '订单商品不能为空', trigger: 'blur' }
+  ]
+}
+
+
 const getProductNames = (orderItemVOList) => {
   return orderItemVOList.map(item => item.productBasicInfoVO.productName).join(', ');
 };
@@ -998,13 +1060,7 @@ const onSubmit = () => {
         if (res.status === 'success') {
           ElMessage.success('订单新增成功');
           showAddDialog.value = false;
-          getOrderPageList(currentPage4.value, pageSize4.value).then(res => {
-            fullData.value = res.data;
-            totalData.value = fullData.value.length;
-            tableKey.value += 1;  // 更新 key 强制刷新
-          }).catch(error => {
-            ElMessage.error(`获取订单列表失败: ${error.message || '未知错误'}`);
-          });
+          fetchData();
         } else {
           ElMessage.error(`新增失败: ${res.message || '未知错误'}`);
         }
@@ -1014,11 +1070,7 @@ const onSubmit = () => {
     }
   });
 };
-// 处理添加后的数据刷新列表
-const handleFormSubmitted = (newCustomer) => {
-  fullData.value.push(newCustomer);
-  updateTotalData();
-};
+
 // 提交编辑表单
 const onEditSubmit = () => {
   editFormRef.value.validate(async (valid) => {
@@ -1027,13 +1079,7 @@ const onEditSubmit = () => {
         if (res.status === 'success') {
           ElMessage.success('订单更新成功');
           showEditDialog.value = false;
-          getOrderPageList(currentPage4.value, pageSize4.value).then(res => {
-            fullData.value = res.data;
-            totalData.value = fullData.value.length;
-            tableKey.value += 1;  // 更新 key 强制刷新
-          }).catch(error => {
-            ElMessage.error(`获取订单列表失败: ${error.message || '未知错误'}`);
-          });
+          fetchData();
         } else {
           ElMessage.error(`更新失败: ${res.message || '未知错误'}`);
         }
@@ -1141,9 +1187,7 @@ const handleDelete = (index, row) => {
       if (res.status === 'success') {
         ElMessage.success('订单删除成功');
         fullData.value.splice(index, 1); // Remove product from list
-        nextTick(() => {
-          updateTotalData();
-        });
+        fetchData();
       } else {
         ElMessage.error(`删除失败: ${res.message || '未知错误'}`); // 提示后端返回的 message
       }
@@ -1155,7 +1199,6 @@ const handleDelete = (index, row) => {
 
 
 const showDetails = (order) => {
-  console.log(order);
   // 先检查传入的 product 是否有 id
   if (!order || !order.orderId) {
     ElMessage.error('订单ID无效');

@@ -1,13 +1,10 @@
 import request from "../utils/request";
 
-export function getOrderPageList(page, size) {
+export function getOrderPageList(params) {
   return request({
     url: "/order/getAllOrder",
     method: "get",
-    params: {
-      page: page,
-      size: size,
-    },
+    params: params
   });
 }
 

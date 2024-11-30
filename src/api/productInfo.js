@@ -7,10 +7,11 @@ export function getProductIdAndNameList() {
   });
 }
 
-export function getProductList() {
+export function getProductList(params) {
   return request({
-    url: "/product/list",
+    url: "/product/pageList",
     method: "get",
+    params: params
   });
 }
 

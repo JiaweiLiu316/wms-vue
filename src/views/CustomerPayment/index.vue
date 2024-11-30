@@ -4,9 +4,22 @@
   </div>
 
   <!-- 支付列表 -->
-  <el-table :data="paginatedData" style="width: 100%" @row-click="handleRowClick">
-    <el-table-column label="付款ID" prop="paymentId" />
-    <el-table-column label="订单ID" prop="orderId" />
+  <el-table :data="fullData" style="width: 100%" @row-click="handleRowClick">
+    <el-table-column label="付款ID" prop="paymentId">
+      <template #default="{ row }">
+        <el-tooltip class="item" effect="dark" :content="row.paymentId" placement="top">
+          <span class="ellipsis" @click="showDetails(row)">{{ row.paymentId }}</span>
+        </el-tooltip>
+      </template>
+    </el-table-column>
+    <el-table-column label="订单ID" prop="orderId">
+      <template #default="{ row }">
+        <el-tooltip class="item" effect="dark" :content="row.orderId" placement="top">
+          <span class="ellipsis" @click="showDetails(row)">{{ row.orderId }}</span>
+        </el-tooltip>
+      </template>
+    </el-table-column>
+    <el-table-column label="联系方式" prop="phoneNumber" />
     <el-table-column label="付款方式" prop="paymentMethod" />
     <el-table-column label="付款日期" prop="paymentDate">
       <template #default="{ row }">
@@ -18,19 +31,19 @@
     <el-table-column label="付款状态" prop="isCompleted">
       <template #default="{ row }">
         <el-tag :type="row.isCompleted ? 'success' : 'danger'" size="small">
-          {{ row.isCompleted ? '已完成' : '未完成' }}
+          {{ row.isCompleted ? '已付' : '未付' }}
         </el-tag>
       </template>
     </el-table-column>
     <el-table-column label="操作" align="right">
       <template #header>
-        <el-input v-model="search" placeholder="搜索......" />
+        <el-input v-model="search" placeholder="搜索......" @input="fetchData" />
       </template>
     </el-table-column>
   </el-table>
 
   <!-- 分页 -->
-  <el-pagination :current-page="currentPage4" :page-size="pageSize4" :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="totalData" @current-change="handlePageChange" @size-change="handlePageSizeChange" />
+  <el-pagination v-model:current-page="currentPage4" v-model:page-size="pageSize4" :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="totalData" @size-change="fetchData" @current-change="fetchData" />
 
   <!-- 商品详情弹窗 -->
   <el-dialog v-model="showDetailsDialog" title="付款详情" :close-on-click-modal="false" :close-on-press-escape="false">
@@ -44,15 +57,14 @@
       <el-form-item label="客户姓名">
         <el-input v-model="selectedPaymentDetail.customerName" disabled />
       </el-form-item>
-      <el-form-item label="客户电话">
-        <el-input v-model="selectedPaymentDetail.customerPhone" disabled />
+      <el-form-item label="联系方式">
+        <el-input v-model="selectedPaymentDetail.phoneNumber" disabled />
       </el-form-item>
-      <el-form-item label="产品名称">
-        <div>
-          <el-tag v-for="(product, index) in selectedPaymentDetail.productsName" :key="index" style="margin-right: 5px;">
-            {{ product }}
-          </el-tag>
-        </div>
+      <el-form-item label="商品列表">
+        <el-input v-model="selectedPaymentDetail.productsList" disabled />
+      </el-form-item>
+      <el-form-item label="商品数量">
+        <el-input v-model="selectedPaymentDetail.productsAmount" disabled />
       </el-form-item>
       <el-form-item label="付款方式">
         <el-input v-model="selectedPaymentDetail.paymentMethod" disabled />
@@ -75,145 +87,73 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
-
+import { ref, computed, watch, onMounted } from 'vue';
+import axios from 'axios';
+import { paymentPageList, getPaymenInfo } from "@/api/customerPayment.js";
+import { ElMessage } from 'element-plus';
 // 数据和状态管理
 const search = ref('');
 const currentPage4 = ref(1);
 const pageSize4 = ref(5);
 const totalData = ref(0);
-
-// 模拟接口数据
-const fullData = ref([
-  {
-    paymentId: 'P12345',
-    orderId: 'O98765',
-    paymentMethod: '信用卡',
-    paymentDate: '2024-11-01 10:00:00',
-    amountDue: 100.00,
-    amountPaid: 100.00,
-    isCompleted: true
-  },
-  {
-    paymentId: 'P12346',
-    orderId: 'O98766',
-    paymentMethod: '支付宝',
-    paymentDate: '2024-11-02 12:00:00',
-    amountDue: 150.00,
-    amountPaid: 150.00,
-    isCompleted: true
-  },
-  {
-    paymentId: 'P12347',
-    orderId: 'O98767',
-    paymentMethod: '微信支付',
-    paymentDate: '2024-11-03 14:30:00',
-    amountDue: 200.00,
-    amountPaid: 0.00,
-    isCompleted: false
-  },
-  {
-    paymentId: 'P12348',
-    orderId: 'O98768',
-    paymentMethod: '银行转账',
-    paymentDate: '2024-11-04 16:45:00',
-    amountDue: 500.00,
-    amountPaid: 200.00,
-    isCompleted: false
-  },
-  {
-    paymentId: 'P12349',
-    orderId: 'O98769',
-    paymentMethod: '信用卡',
-    paymentDate: '2024-11-05 18:00:00',
-    amountDue: 350.00,
-    amountPaid: 350.00,
-    isCompleted: true
-  }
-  ,
-  {
-    paymentId: 'P12349',
-    orderId: 'O98769',
-    paymentMethod: '信用卡',
-    paymentDate: '2024-11-05 18:00:00',
-    amountDue: 350.00,
-    amountPaid: 350.00,
-    isCompleted: true
-  }
-  ,
-  {
-    paymentId: 'P12349',
-    orderId: 'O98769',
-    paymentMethod: '信用卡',
-    paymentDate: '2024-11-05 18:00:00',
-    amountDue: 350.00,
-    amountPaid: 350.00,
-    isCompleted: true
-  }
-  ,
-  {
-    paymentId: 'P12349',
-    orderId: 'O98769',
-    paymentMethod: '信用卡',
-    paymentDate: '2024-11-05 18:00:00',
-    amountDue: 350.00,
-    amountPaid: 350.00,
-    isCompleted: true
-  }
-]);
-const paymentStatus = computed(() => {
-  return selectedPaymentDetail.value.isCompleted ? '已完成' : '未完成';
-});
-// 总数
-totalData.value = fullData.value.length;
-
-// 过滤数据
-const filteredData = computed(() => {
-  const query = search.value.trim().toLowerCase();
-  return fullData.value.filter(
-    (data) =>
-      !search.value ||
-      data.paymentId.toLowerCase().includes(query) ||
-      data.orderId.toLowerCase().includes(query) ||
-      data.paymentMethod.toLowerCase().includes(query) ||
-      data.paymentDate.toLowerCase().includes(query) ||
-      String(data.amountDue).includes(query) ||
-      String(data.amountPaid).includes(query) ||
-      String(data.isCompleted).includes(query)
-  );
-});
-
-// 分页数据
-const paginatedData = computed(() => {
-  const start = (currentPage4.value - 1) * pageSize4.value;
-  const end = currentPage4.value * pageSize4.value;
-  return filteredData.value.slice(start, end);
-});
-
-// 更新总数
-const updateTotalData = () => {
-  totalData.value = filteredData.value.length;
-};
-
-// 监听分页和搜索
-watch([search, currentPage4, pageSize4], updateTotalData);
-
-// 显示弹窗
-const showDetailsDialog = ref(false);
-
+const fullData = ref([]);
 // 存储选择的付款详情
 const selectedPaymentDetail = ref({
   paymentId: '',
   orderId: '',
   customerName: '',
-  customerPhone: '',
-  productsName: [],
+  phoneNumber: '',
+  productsList: "",
   paymentMethod: '',
+  productsAmount: 0,
   paymentDate: '',
   amountDue: 0,
   amountPaid: 0,
   isCompleted: false
 });
+// 调用接口获取列表分页数据
+const fetchData = async () => {
+  try {
+    const params = {
+      page: currentPage4.value,
+      size: pageSize4.value,
+      search: search.value.trim(),
+    }
+    const res = await paymentPageList(params);
+    fullData.value = res.data.records; // 后端返回的当前页数据
+    totalData.value = res.data.total;  // 后端返回的总条目数
+  } catch (err) {
+    ElMessage.error('加载数据失败');
+  }
+};
+
+fetchData();
+// 分页监视器
+watch([search, currentPage4, pageSize4], async () => {
+  fetchData();
+}, { immediate: true });
+// 获取详情数据的函数
+const fetchDetailData = async (paymentId) => {
+  try {
+    const response = await getPaymenInfo(paymentId);
+    // 按照Result结构解析详情接口返回数据，判断状态是否为success
+    if (response.status === 'success') {
+      return response.data;
+    } else {
+      console.error('获取支付详情数据出错，消息：', response.message);
+      return {};
+    }
+  } catch (error) {
+    console.error('获取支付详情数据出错', error);
+    return {};
+  }
+};
+const paymentStatus = computed(() => {
+  return selectedPaymentDetail.value.isCompleted ? '已完成' : '未完成';
+});
+
+// 显示弹窗
+const showDetailsDialog = ref(false);
 
 // 格式化日期
 const formatDate = (date) => {
@@ -221,20 +161,14 @@ const formatDate = (date) => {
 };
 
 // 选择行时显示详情
-const handleRowClick = (row) => {
-  selectedPaymentDetail.value = { ...row };
+const handleRowClick = async (row) => {
+  const detail = await fetchDetailData(row.paymentId);
+  selectedPaymentDetail.value = { ...detail };
   showDetailsDialog.value = true;
 };
 
-// 处理分页变更
-const handlePageChange = (newPage) => {
-  currentPage4.value = newPage;
-};
 
-// 处理页面大小变化
-const handlePageSizeChange = (newSize) => {
-  pageSize4.value = newSize;
-};
+
 </script>
 
 <style scoped>

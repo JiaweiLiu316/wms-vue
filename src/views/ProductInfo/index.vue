@@ -35,8 +35,8 @@
     </el-form>
   </el-dialog>
 
-  <!-- 顾客列表 -->
-  <el-table :data="paginatedData" :key="tableKey" style="width: 100%" @row-click="handleRowClick">
+  <!-- 商品列表 -->
+  <el-table :data="fullData" style="width: 100%" @row-click="handleRowClick">
     <el-table-column label="标识 " prop="id" />
     <el-table-column label="名称" prop="name">
       <template #default="{ row }">
@@ -58,7 +58,7 @@
     </el-table-column>
     <el-table-column label="操作" align="right">
       <template #header>
-        <el-input v-model="search" placeholder="搜索......" />
+        <el-input v-model="search" placeholder="搜索......" @input="fetchData" />
       </template>
       <template #default="scope">
         <el-button type="primary" :icon="EditIcon" circle @click="handleEdit(scope.$index, scope.row)" />
@@ -67,7 +67,7 @@
     </el-table-column>
   </el-table>
   <!-- 分页 -->
-  <el-pagination v-model:current-page="currentPage4" v-model:page-size="pageSize4" :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="totalData" />
+  <el-pagination v-model:current-page="currentPage4" v-model:page-size="pageSize4" :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="totalData" @size-change="fetchData" @current-change="fetchData" />
 
   <!-- 商品详情弹窗 -->
   <el-dialog v-model="showDetailsDialog" title="商品详情" :close-on-click-modal="false" :close-on-press-escape="false">
@@ -236,33 +236,31 @@ const addRules = {
   ]
 };
 
-
-// Fetch products and initialize data
-getProductList().then(res => {
-  fullData.value = res.data;
-  totalData.value = fullData.value.length;
-});
-
-// Filter and paginate data
-const filteredData = computed(() => {
-  const query = search.value.trim().toLowerCase();
-  return fullData.value.filter(
-    data => !search.value || data.id.toLowerCase().includes(query) || data.name.toLowerCase().includes(query) ||
-      data.category.toLowerCase().includes(query) || data.region.toLowerCase().includes(query) ||
-      String(data.stock).includes(query) || String(data.price).includes(query)
-  );
-});
-const paginatedData = computed(() => {
-  const start = (currentPage4.value - 1) * pageSize4.value;
-  const end = currentPage4.value * pageSize4.value;
-  return filteredData.value.slice(start, end);
-});
-const updateTotalData = () => {
-  totalData.value = filteredData.value.length;
+// 格式化日期
+const formatDate = (date) => {
+  return date ? new Date(date).toLocaleString() : '';
 };
-watch([search, currentPage4, pageSize4], updateTotalData);
+const fetchData = async () => {
+  try {
+    const params = {
+      page: currentPage4.value,
+      size: pageSize4.value,
+      search: search.value.trim(),
+    }
+    const res = await getProductList(params);
+    fullData.value = res.data.records; // 后端返回的当前页数据
+    totalData.value = res.data.total;  // 后端返回的总条目数
+  } catch (err) {
+    ElMessage.error('加载数据失败');
+  }
+};
 
-const tableKey = ref(0);
+fetchData();
+
+// 分页监视器
+watch([search, currentPage4, pageSize4], async () => {
+  fetchData();
+}, { immediate: true });
 
 const onSubmit = () => {
   addFormRef.value.validate(async (valid) => {
@@ -271,13 +269,7 @@ const onSubmit = () => {
         if (res.status === 'success') {
           ElMessage.success('商品新增成功');
           showAddDialog.value = false;
-          getProductList().then(res => {
-            fullData.value = res.data;
-            totalData.value = fullData.value.length;
-            tableKey.value += 1;  // 更新 key 强制刷新
-          }).catch(error => {
-            ElMessage.error(`获取商品列表失败: ${error.message || '未知错误'}`);
-          });
+          fetchData();
         } else {
           ElMessage.error(`新增失败: ${res.message || '未知错误'}`);
         }
@@ -296,13 +288,7 @@ const onEditSubmit = () => {
         if (res.status === 'success') {
           ElMessage.success('商品更新成功');
           showEditDialog.value = false;
-          const index = fullData.value.findIndex(item => item.id === editForm.value.id);
-          if (index !== -1) {
-            fullData.value[index] = { ...editForm.value }; // 更新数据源
-            currentPage4.value = 1;  // 重置到第一页
-            tableKey.value += 1;  // 更新 key 强制刷新表格
-            updateTotalData();  // 更新总数据数量
-          }
+          fetchData();
         } else {
           ElMessage.error(`更新失败: ${res.message || '未知错误'}`);
         }
@@ -328,10 +314,8 @@ const handleDelete = (index, row) => {
     delProduct(row.id).then(res => {
       if (res.status === 'success') {
         ElMessage.success('商品删除成功');
-        fullData.value.splice(index, 1); // Remove product from list
-        nextTick(() => {
-          updateTotalData();
-        });
+
+        fetchData();
       } else {
         ElMessage.error(`删除失败: ${res.message || '未知错误'}`); // 提示后端返回的 message
       }
